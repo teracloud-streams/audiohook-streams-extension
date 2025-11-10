@@ -240,8 +240,12 @@ class ClientSessionImpl extends EventEmitter implements ClientSession {
         });
 
         this.mediaSource.on('audio', (data) => {
+            console.log('[ClientSessionImpl] audio event triggered, state:', this.state, 'data:', data);
             if(this.state === 'OPEN') {
+                console.log('[ClientSessionImpl] ws.send called with data:', data);
                 this.ws.send(data);
+            } else {
+                console.log('[ClientSessionImpl] audio event ignored, state is not OPEN');
             }
         });
         this.mediaSource.on('discarded', (start, discarded) => {

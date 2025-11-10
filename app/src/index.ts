@@ -38,8 +38,11 @@ server.register(websocket, {
 
 
 server.register(async (fastify: FastifyInstance) => {
+    fastify.log.info('Registering /api/v1/audiohook/ws route');
     addAudiohookSampleRoute(fastify, '/api/v1/audiohook/ws');
+    fastify.log.info('Registering /api/v1/voicetranscription/ws route');
     addAudiohookVoiceTranscriptionRoute(fastify, '/api/v1/voicetranscription/ws');
+    fastify.log.info('Registering /api/v1/loadtest/ws route');
     addAudiohookLoadTestRoute(fastify, '/api/v1/loadtest/ws');
 
 });

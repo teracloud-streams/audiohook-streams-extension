@@ -135,7 +135,7 @@ const getFromConfig = () => {
         throw new Error('No API Key specified');
     }
     if (!clientSecret) {
-        throw new Error('No client secret specified');
+       // throw new Error('No client secret specified');
     }
 };
 

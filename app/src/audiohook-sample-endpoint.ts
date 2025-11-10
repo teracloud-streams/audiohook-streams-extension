@@ -68,11 +68,16 @@ export const addAudiohookSampleRoute = (fastify: FastifyInstance, path: string):
 
         request.log.info(`Websocket Request - URI: <${request.url}>, SocketRemoteAddr: ${request.socket.remoteAddress}, Headers: ${JSON.stringify(request.headers, null, 1)}`);
 
+        request.log.info(`[addAudiohookSampleRoute] Checking sessionId from headers...`);
         const sessionId = httpsig.queryCanonicalizedHeaderField(request.headers, 'audiohook-session-id');
+        request.log.info(`[addAudiohookSampleRoute] sessionId value: ${sessionId}`);
         if(!sessionId || !isUuid(sessionId)) {
+            request.log.error(`[addAudiohookSampleRoute] Invalid or missing sessionId: ${sessionId}`);
             throw new RangeError('Missing or invalid "audiohook-session-id" header field');
         }
+        request.log.info(`[addAudiohookSampleRoute] Checking WebSocket binaryType...`);
         if(isDev && (connection.socket.binaryType !== 'nodebuffer')) {
+            request.log.error(`[addAudiohookSampleRoute] Unsupported WebSocket binaryType: ${connection.socket.binaryType}`);
             throw new Error(`WebSocket binary type '${connection.socket.binaryType}' not supported`);
         }
 
@@ -87,6 +92,7 @@ export const addAudiohookSampleRoute = (fastify: FastifyInstance, path: string):
         if(recordingBucket) {
             // We have an S3 bucket. Create a session whose audio is recorded into a WAV file and protocol
             // and log messages are written to a sidecar JSON file, then uploaded to S3.
+            logger.info(`[addAudiohookSampleRoute] Creating RecordedSession for sessionId: ${sessionId}`);
             const recorder = RecordedSession.create({
                 ws,
                 sessionId,
@@ -101,6 +107,7 @@ export const addAudiohookSampleRoute = (fastify: FastifyInstance, path: string):
             session = recorder.session;
         } else {
             // No S3 bucket configured, just create a server session
+            logger.info(`[addAudiohookSampleRoute] Creating ServerSession for sessionId: ${sessionId}`);
             session = createServerSession({
                 ws,
                 id: sessionId,

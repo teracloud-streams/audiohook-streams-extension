@@ -140,6 +140,7 @@ class MediaSourceWav extends EventEmitter implements MediaSource {
                                 sendData = srcFrame.getChannelView(this.selectedMedia.channels[0], 'PCMU').data;
                             }
                             if(this.state === 'STREAMING') {
+                                console.log('sendData:', sendData);
                                 this.emit('audio', sendData);
                             }
                         }
