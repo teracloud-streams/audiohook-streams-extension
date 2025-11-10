@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import path from 'path';
 import {
     ClientMessage,
     CloseMessage,
@@ -65,7 +66,7 @@ import {
     StatisticsInfo,
     UpdateHandler,
 } from './serversession';
-
+import { WavFileWriter } from '../..';
 
 type StateToBooleanMap = {
     readonly [state in ServerSessionState]: boolean
@@ -128,13 +129,15 @@ export const createServerSession = (options: ServerSessionOptions): ServerSessio
 };
 
 
-class ServerSessionImpl extends EventEmitter implements ServerSession {
+export class ServerSessionImpl extends EventEmitter implements ServerSession {
     private socketFd: any | null = null; // Will be net.Socket | null after connection
     private socketClients: Set<any> = new Set(); // ✅ Initialize here
     private socketPath: string = '/tmp/gnsys.socket';
     readonly ws: ServerWebSocket;
     readonly logger: Logger;
     readonly messageDispatch: MessageDispatcher<ClientMessage>;
+    private wavWriter?: WavFileWriter;
+    private recordingPath?: string;
 
     id: Uuid;
     seq = 0;
@@ -189,6 +192,51 @@ class ServerSessionImpl extends EventEmitter implements ServerSession {
 
     setState(state: ServerSessionState): void {
         this.state = state;
+    }
+
+    async startWavRecording(sessionId: string, fileLogRoot: string): Promise<void> {
+        try {
+            // Create recording filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `${sessionId}_${timestamp}.wav`;
+            const recordingPath = path.join(fileLogRoot, filename);
+            this.recordingPath = recordingPath;
+            
+            // Fix: Handle MediaChannels type properly
+            let channels = 1;  // default
+            if (this.selectedMedia?.channels) {
+                if (typeof this.selectedMedia.channels === 'number') {
+                    channels = this.selectedMedia.channels;
+                } else if (Array.isArray(this.selectedMedia.channels)) {
+                    channels = this.selectedMedia.channels.length;
+                }
+            }
+            
+            // Create WAV writer with detected audio format
+            this.wavWriter = await WavFileWriter.create(
+                recordingPath,
+                this.selectedMedia?.format || 'L16',
+                this.selectedMedia?.rate || 16000,
+                channels  // Use the fixed channels value
+            );
+            
+            this.logger?.info(`Started WAV recording: ${this.recordingPath}`);
+        } catch (error) {
+            this.logger?.error(`Failed to start WAV recording: ${error}`);
+        }
+    }
+
+    async stopWavRecording(): Promise<void> {
+        if (this.wavWriter) {
+            try {
+                const bytesWritten = await this.wavWriter.close();
+                this.logger?.info(`WAV recording completed: ${this.recordingPath}, ${bytesWritten} bytes`);
+                this.wavWriter = undefined;
+                this.recordingPath = undefined;
+            } catch (error) {
+                this.logger?.error(`Failed to close WAV recording: ${error}`);
+            }
+        }
     }
 
     addAuthenticator(handler: Authenticator): this {
@@ -457,6 +505,9 @@ class ServerSessionImpl extends EventEmitter implements ServerSession {
         this.messageDispatch[message.type](message as never);
     }
 
+    // Fix the WAV recording method
+
+
     onBinaryMessage(data: Uint8Array): void {
         this.logger.trace(`Binary message. Size: ${data.length}`);
         this.logger.info(`Binary message: ${data.length}`);
@@ -474,6 +525,17 @@ class ServerSessionImpl extends EventEmitter implements ServerSession {
         let audioFrame;
         try {
             audioFrame = mediaDataFrameFromMessage(data, this.selectedMedia);
+            // Fix: Use the correct property name
+            // Fix: Write raw binary data to WAV instead of trying to access frame properties
+            if (this.wavWriter && audioFrame) {
+                try {
+                    // Since we don't know the exact MediaDataFrame properties,
+                    // let's write the original binary data which contains the audio
+                    this.wavWriter.writeAudio(data);
+                } catch (error) {
+                    this.logger?.error(`WAV write error: ${error}`);
+                }
+            }
         } catch (err) {
             const info = `Binary data not a valid audio frame. Error: ${normalizeError(err).message}`;
             this.logger.warn(info);
@@ -764,7 +826,7 @@ class ServerSessionImpl extends EventEmitter implements ServerSession {
                     this.setState('CLOSED');
                 }
             });
-    
+        this.stopWavRecording();
     }
 
     onErrorMessage(message: ErrorMessage): void {

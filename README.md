@@ -1,3 +1,9 @@
+# Streams extension for Genesys AudioHook
+
+Based on the Genesys AudioHook Sample Service, this repo introduces changes for local socket writing to be consumed by a Streams application. 
+
+See the instructions below for building and running the AudioHook connector.
+
 # Genesys AudioHook Sample Service
 
 ## Introduction

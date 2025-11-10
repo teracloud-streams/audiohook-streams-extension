@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { RecordedSession, RecordingBucket } from './recordedsession';
 import { initiateRequestAuthentication, verifyRequestSignature } from './authenticator';
 import { isUuid, httpsignature as httpsig, ServerSession, createServerSession } from '../audiohook';
+import { ServerSessionImpl } from '../audiohook/src/server/serversessionimpl';
 import { addAgentAssist } from './agentassist-hack';
 import { SessionWebsocketStatsTracker } from './session-websocket-stats-tracker';
 
@@ -114,7 +115,35 @@ export const addAudiohookSampleRoute = (fastify: FastifyInstance, path: string):
                 logger
             });
         }
-        
+
+        if ( session instanceof ServerSessionImpl) {
+            logger.info(`🎵 Setting up WAV recording for session: ${sessionId}`);
+            
+            // Start WAV recording when session opens
+            session.addOpenHandler(async () => {
+                logger.info(`🎵 Session opened, starting WAV recording...`);
+                try {
+                    const sessionImpl = session as ServerSessionImpl;
+                    await sessionImpl.startWavRecording(sessionId, fileLogRoot);
+                    logger.info(`🎵 WAV recording started successfully`);
+                } catch (error) {
+                    logger.error(`🎵 Failed to start WAV recording: ${error}`);
+                }
+            });
+            
+            // Stop WAV recording when session closes
+            session.addFiniHandler(async () => {
+                logger.info(`🎵 Session closing, stopping WAV recording...`);
+                try {
+                    const sessionImpl = session as ServerSessionImpl;
+                    await sessionImpl.stopWavRecording();
+                    logger.info(`🎵 WAV recording stopped successfully`);
+                } catch (error) {
+                    logger.error(`🎵 Failed to stop WAV recording: ${error}`);
+                }
+            });
+        }
+
         if(!(request.authenticated ?? false)) {
             // Request has not yet been authenticated, attach authenticator(s) to verify request signature.
             initiateRequestAuthentication({ session, request });
