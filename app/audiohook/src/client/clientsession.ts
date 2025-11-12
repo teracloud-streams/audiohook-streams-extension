@@ -9,11 +9,10 @@ import {
 } from '../protocol/message';
 import {
     EventEntityDataTranscript
-} from '../protocol/entities-transcript'
+} from '../protocol/entities-transcript';
 import {
     Duration,
-    LanguageCode,
-} from '../protocol/core'
+} from '../protocol/core';
 
 export type ClientSessionState = 
     | 'CONNECTING'

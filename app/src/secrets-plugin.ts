@@ -55,7 +55,7 @@ class SecretsCache implements Secrets {
         return res;
     }
 
-    async lookupSecretForKeyId(keyId: string, logger?: Logger): Promise<Uint8Array | null> {
+    async lookupSecretForKeyId(keyId: string): Promise<Uint8Array | null> {
         let secret = null;
         if(this.secretsClient) {
             const now = Date.now();
